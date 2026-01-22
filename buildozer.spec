@@ -19,8 +19,9 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# CRITICAL FIX: We pin "python3==3.11.9" to avoid the broken "_remote_debugging" error in newer versions
-requirements = python3==3.11.9,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
+# FIX: Removed specific python version. 'master' branch will pick a stable one (usually 3.9/3.10)
+# This avoids the Patch error and the C99 error.
+requirements = python3,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/assets/presplash.png
@@ -62,8 +63,8 @@ android.gradle_dependencies = androidx.biometric:biometric:1.1.0
 android.accept_sdk_license = True
 
 # (str) python-for-android branch to clone
-# We still need 'develop' for biometrics, but pinning Python 3.11 fixes the crash
-p4a.branch = develop
+# CRITICAL FIX: Switch back to 'master' to avoid the broken Python 3.14 patches in 'develop'
+p4a.branch = master
 
 [buildozer]
 
