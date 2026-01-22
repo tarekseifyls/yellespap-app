@@ -6,8 +6,7 @@ on:
 
 jobs:
   build:
-    # CRITICAL FIX: Force Ubuntu 22.04.
-    # The new "ubuntu-latest" (24.04) breaks Android NDK builds.
+    # Stable environment for Android builds
     runs-on: ubuntu-22.04
 
     steps:
@@ -35,7 +34,6 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       # 4. Install System Dependencies
-      # I have simplified this list to the essential stable packages
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -69,10 +67,10 @@ jobs:
           pip install buildozer
           pip install cython==0.29.33
 
-      # 6. Build APK
-      # We use 'yes' again because it works perfectly on Ubuntu 22.04
+      # 6. Build APK (CRITICAL FIX: Explicitly set JAVA_HOME)
       - name: Build APK
         run: |
+          export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
           yes | buildozer android debug
 
       # 7. Upload the APK
