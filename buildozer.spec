@@ -19,7 +19,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# REMOVED: androidx, jnius (Not needed for basic version)
+# REMOVED: androidx, jnius, sqlite3
 requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,sdl2_ttf==2.20.1
 
 # (str) Supported orientation
@@ -45,7 +45,7 @@ android.ndk = 25b
 android.skip_update = False
 
 # (list) The Android archs to build for
-# We keep both architectures to ensure it runs on your phone
+# CRITICAL: We include BOTH to prevent crashes on different phones
 android.archs = arm64-v8a, armeabi-v7a
 
 # (bool) Enable AndroidX support.
