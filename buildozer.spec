@@ -21,17 +21,7 @@ version = 1.0
 # (list) Application requirements
 # FIX: Removed specific python version. 'master' branch will pick a stable one (usually 3.9/3.10)
 # This avoids the Patch error and the C99 error.
-requirements = python3==3.10.13,
-               kivy==2.2.1,
-               kivymd==1.1.1,
-               cython==0.29.36,
-               setuptools<70,
-               pillow,
-               reportlab,
-               jnius,
-               sqlite3,
-               sdl2_ttf>=2.20,
-               androidx
+requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,jnius,sqlite3,sdl2_ttf==2.20.1
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/assets/presplash.png
@@ -83,5 +73,6 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
 
 
