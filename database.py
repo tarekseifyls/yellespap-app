@@ -22,7 +22,6 @@ class StoreDatabase:
                 time_str TEXT
             )
         """)
-
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS receipts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,8 +35,7 @@ class StoreDatabase:
                 time_str TEXT
             )
         """)
-        
-        # Original create table (might be skipped if table exists)
+        # Added is_deleted to track soft deletes
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,61 +44,108 @@ class StoreDatabase:
                 amount REAL,
                 date_str TEXT,
                 time_str TEXT,
-                note TEXT
+                note TEXT,
+                is_deleted INTEGER DEFAULT 0
             )
         """)
-
         self.cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
         self.cursor.execute("CREATE TABLE IF NOT EXISTS workers (name TEXT PRIMARY KEY)")
-        
         self.cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('pin', '0000')")
         self.cursor.execute("INSERT OR IGNORE INTO workers (name) VALUES ('Store Expense')")
         self.conn.commit()
 
     def perform_migrations(self):
-        """Checks for missing columns in old databases and adds them"""
+        # 1. Check for client_name
         try:
-            # Check if 'client_name' exists in payments
             self.cursor.execute("SELECT client_name FROM payments LIMIT 1")
         except sqlite3.OperationalError:
-            # If error, column is missing -> Add it
-            print("Migrating Database: Adding client_name to payments...")
             self.cursor.execute("ALTER TABLE payments ADD COLUMN client_name TEXT")
             self.conn.commit()
+        
+        # 2. Check for is_deleted
+        try:
+            self.cursor.execute("SELECT is_deleted FROM payments LIMIT 1")
+        except sqlite3.OperationalError:
+            print("Migrating: Adding audit trail (is_deleted)...")
+            self.cursor.execute("ALTER TABLE payments ADD COLUMN is_deleted INTEGER DEFAULT 0")
+            self.conn.commit()
+
+    # --- PAYMENT EDITING (AUDIT AWARE) ---
+    def update_payment(self, payment_id, client_name, new_amount, new_note):
+        self.cursor.execute("SELECT receipt_id FROM payments WHERE id=?", (payment_id,))
+        row = self.cursor.fetchone()
+        receipt_id = row[0] if row else None
+
+        self.cursor.execute("""
+            UPDATE payments 
+            SET client_name=?, amount=?, note=? 
+            WHERE id=?
+        """, (client_name, new_amount, new_note, payment_id))
+        
+        if receipt_id: self.recalculate_receipt_balance(receipt_id)
+        self.conn.commit()
+
+    def delete_payment(self, payment_id):
+        """Soft Delete: Mark as deleted but keep record"""
+        self.cursor.execute("SELECT receipt_id FROM payments WHERE id=?", (payment_id,))
+        row = self.cursor.fetchone()
+        receipt_id = row[0] if row else None
+
+        # MARK AS DELETED (Do not remove row)
+        self.cursor.execute("UPDATE payments SET is_deleted=1 WHERE id=?", (payment_id,))
+        
+        if receipt_id: self.recalculate_receipt_balance(receipt_id)
+        self.conn.commit()
+
+    def recalculate_receipt_balance(self, receipt_id):
+        # Only sum payments that are NOT deleted
+        self.cursor.execute("SELECT SUM(amount) FROM payments WHERE receipt_id=? AND is_deleted=0", (receipt_id,))
+        result = self.cursor.fetchone()
+        total_paid = result[0] if result[0] else 0.0
+        
+        self.cursor.execute("SELECT total_price FROM receipts WHERE id=?", (receipt_id,))
+        row = self.cursor.fetchone()
+        if not row: return
+        total_price = row[0]
+        
+        if total_paid >= total_price: status = "Paid"
+        elif total_paid > 0: status = "Partial"
+        else: status = "Unpaid"
+            
+        self.cursor.execute("UPDATE receipts SET amount_paid=?, status=? WHERE id=?", (total_paid, status, receipt_id))
 
     # --- EXTERNAL PAYMENTS ---
     def add_external_payment(self, client_name, amount, note="Manual Payment"):
         now = datetime.now()
         self.cursor.execute("""
-            INSERT INTO payments (receipt_id, client_name, amount, date_str, time_str, note)
-            VALUES (NULL, ?, ?, ?, ?, ?)
+            INSERT INTO payments (receipt_id, client_name, amount, date_str, time_str, note, is_deleted)
+            VALUES (NULL, ?, ?, ?, ?, ?, 0)
         """, (client_name, amount, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), note))
         self.conn.commit()
 
     def get_monthly_external_payments(self, month_str=None):
         if not month_str: month_str = datetime.now().strftime("%Y-%m")
+        # Fetch ALL payments, even deleted ones (so we can show them crossed out)
         self.cursor.execute("""
-            SELECT client_name, amount, date_str, time_str, note 
+            SELECT id, client_name, amount, date_str, time_str, note, is_deleted
             FROM payments 
             WHERE receipt_id IS NULL AND date_str LIKE ?
             ORDER BY date_str DESC, time_str DESC
         """, (f"{month_str}%",))
-        return [{"client": r[0], "amount": r[1], "date": r[2], "time": r[3], "note": r[4]} for r in self.cursor.fetchall()]
+        return [{"id": r[0], "client": r[1], "amount": r[2], "date": r[3], "time": r[4], "note": r[5], "is_deleted": r[6]} for r in self.cursor.fetchall()]
 
     # --- CORE TOTALS ---
     def get_daily_total(self, date_str=None):
         if not date_str: date_str = datetime.now().strftime("%Y-%m-%d")
         
-        # 1. Quick Sales
         self.cursor.execute("SELECT amount FROM quick_sales WHERE date_str=? AND is_expense=0", (date_str,))
         total = sum(r[0] for r in self.cursor.fetchall())
         
-        # 2. Subtract Expenses
         self.cursor.execute("SELECT amount FROM quick_sales WHERE date_str=? AND is_expense=1", (date_str,))
         total -= sum(r[0] for r in self.cursor.fetchall())
             
-        # 3. Add ALL Payments
-        self.cursor.execute("SELECT amount FROM payments WHERE date_str=?", (date_str,))
+        # IMPORTANT: Ignore deleted payments in total calculation
+        self.cursor.execute("SELECT amount FROM payments WHERE date_str=? AND is_deleted=0", (date_str,))
         total += sum(r[0] for r in self.cursor.fetchall())
             
         return total
@@ -109,34 +154,43 @@ class StoreDatabase:
         if not date_str: date_str = datetime.now().strftime("%Y-%m-%d")
         items = []
 
-        # Quick Sales
         self.cursor.execute("SELECT id, amount, is_expense, worker_name, note, time_str FROM quick_sales WHERE date_str=?", (date_str,))
         for r in self.cursor.fetchall():
-            is_exp = r[2]
-            note = r[4] if r[4] else ("Expense" if is_exp else "Quick Sale")
-            items.append({"type": "expense" if is_exp else "quick", "id": r[0], "amount": r[1], "time": r[5], "desc": note})
+            items.append({"type": "expense" if r[2] else "quick", "id": r[0], "amount": r[1], "time": r[5], "desc": r[4] or ("Expense" if r[2] else "Quick Sale")})
 
-        # Receipts
         self.cursor.execute("SELECT id, client_name, total_price, status, time_str FROM receipts WHERE date_str=?", (date_str,))
         for r in self.cursor.fetchall():
             items.append({"type": "receipt", "id": r[0], "amount": r[2], "time": r[4], "desc": f"Receipt: {r[1]}", "status": r[3]})
             
-        # Payments
+        # Show payments, allow showing deleted ones visually
         self.cursor.execute("""
-            SELECT p.id, p.amount, p.time_str, p.client_name, r.client_name, p.note
+            SELECT p.id, p.amount, p.time_str, p.client_name, r.client_name, p.note, p.is_deleted
             FROM payments p 
             LEFT JOIN receipts r ON p.receipt_id = r.id 
             WHERE p.date_str=?
         """, (date_str,))
         
         for r in self.cursor.fetchall():
-            # If receipt client exists (r[4]), use it. Else use manual client (p[3])
             client = r[4] if r[4] else r[3]
             note = "Versement" if r[4] else "Ext. Payment"
+            desc = f"{note}: {client}"
+            if r[5]: desc += f" ({r[5]})"
             
-            # Filter out initial payments to avoid duplicates visually
+            # If deleted, modify desc
+            if r[6] == 1:
+                desc = f"[s]{desc}[/s] (DELETED)"
+            
             if "Initial Payment" not in (r[5] or ""):
-                items.append({"type": "payment", "id": r[0], "amount": r[1], "time": r[2], "desc": f"{note}: {client}"})
+                items.append({
+                    "type": "payment", 
+                    "id": r[0], 
+                    "amount": r[1], 
+                    "time": r[2], 
+                    "desc": desc,
+                    "client": client,
+                    "note": r[5] or "",
+                    "is_deleted": r[6]
+                })
 
         items.sort(key=lambda x: x['time'], reverse=True)
         return items
@@ -157,7 +211,8 @@ class StoreDatabase:
 
     def record_payment(self, receipt_id, amount, note, client_name=None):
         now = datetime.now()
-        self.cursor.execute("INSERT INTO payments (receipt_id, client_name, amount, date_str, time_str, note) VALUES (?, ?, ?, ?, ?, ?)", 
+        # Default is_deleted = 0
+        self.cursor.execute("INSERT INTO payments (receipt_id, client_name, amount, date_str, time_str, note, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", 
                             (receipt_id, client_name, amount, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"), note))
         self.conn.commit()
 
@@ -208,11 +263,13 @@ class StoreDatabase:
         try:
             with open(filename, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                writer.writerow(["Type", "Date", "Who", "Description", "Amount"])
+                writer.writerow(["Type", "Date", "Who", "Description", "Amount", "Status"])
                 self.cursor.execute("SELECT * FROM quick_sales")
-                for r in self.cursor.fetchall(): writer.writerow(["Cash", r[5], r[3], r[4], r[1]])
+                for r in self.cursor.fetchall(): writer.writerow(["Cash", r[5], r[3], r[4], r[1], "Valid"])
                 self.cursor.execute("SELECT * FROM payments")
-                for r in self.cursor.fetchall(): writer.writerow(["Payment", r[4], r[2], r[6], r[3]])
+                for r in self.cursor.fetchall(): 
+                    status = "DELETED" if r[7] else "Valid"
+                    writer.writerow(["Payment", r[4], r[2], r[6], r[3], status])
             return filename
         except: return None
     def close(self): self.conn.close()
