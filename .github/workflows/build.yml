@@ -6,10 +6,12 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # CRITICAL FIX: Force Ubuntu 22.04. 
+    # Ubuntu 24.04 (latest) breaks the Android NDK tools.
+    runs-on: ubuntu-22.04
 
-    # FIX: Increase memory for the build process to prevent crashes
     env:
+      # Give Gradle enough memory to process the heavy Biometric libraries
       GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
 
     steps:
@@ -21,7 +23,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 2. Setup Java 17 (Required for Android builds)
+      # 2. Setup Java 17 (Required for modern Android builds)
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -37,7 +39,7 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       # 4. Install System Dependencies
-      # FIX: Added libjpeg-dev and libfreetype6-dev for Pillow/ReportLab
+      # Added 'autopoint' and 'pkg-config' which are vital for compiling C extensions on Linux
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -64,6 +66,8 @@ jobs:
             libltdl-dev \
             libjpeg-dev \
             libfreetype6-dev \
+            autopoint \
+            pkg-config \
             autoconf \
             libtool \
             openjdk-17-jdk
