@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    # Stable environment for Android builds
+    # Use Ubuntu 22.04 for stability
     runs-on: ubuntu-22.04
 
     steps:
@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 2. Setup Java 17 (Required for Android builds)
+      # 2. Setup Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -67,10 +67,11 @@ jobs:
           pip install buildozer
           pip install cython==0.29.33
 
-      # 6. Build APK (CRITICAL FIX: Explicitly set JAVA_HOME)
+      # 6. Build APK (With explicit JAVA_HOME and Clean step)
       - name: Build APK
         run: |
           export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+          yes | buildozer android clean
           yes | buildozer android debug
 
       # 7. Upload the APK
