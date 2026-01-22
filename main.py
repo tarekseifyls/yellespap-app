@@ -6,7 +6,7 @@ from kivymd.app import MDApp
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.list import TwoLineAvatarIconListItem, OneLineListItem, IconLeftWidget, OneLineAvatarIconListItem, IconRightWidget, ThreeLineListItem
+from kivymd.uix.list import TwoLineAvatarIconListItem, OneLineListItem, IconLeftWidget, IconRightWidget, ThreeLineListItem
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton, MDFillRoundFlatIconButton, MDIconButton
 from kivymd.uix.pickers import MDDatePicker
