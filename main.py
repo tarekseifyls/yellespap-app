@@ -11,29 +11,13 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton, MDFillRoundFlatIconButton, MDIconButton
 from kivymd.uix.pickers import MDDatePicker
 from kivymd.toast import toast
-from kivy.core.clipboard import Clipboard
 from kivy.core.window import Window
-from kivy.utils import platform as kivy_platform
 from kivy.clock import mainthread
 
 from database import StoreDatabase
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A6
 from reportlab.lib.units import mm
-
-# --- SAFETY WRAPPER FOR ANDROID IMPORTS ---
-# Prevents startup crash if Biometrics fail to load
-BiometricPrompt = None
-if kivy_platform == 'android':
-    try:
-        from jnius import autoclass
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        BiometricPrompt = autoclass('androidx.biometric.BiometricPrompt')
-        BiometricManager = autoclass('androidx.biometric.BiometricManager')
-        ContextCompat = autoclass('androidx.core.content.ContextCompat')
-        PromptInfo = autoclass('androidx.biometric.BiometricPrompt$PromptInfo')
-    except Exception as e:
-        print(f"Biometric Import Error: {e}")
 
 Window.size = (360, 750)
 
@@ -66,7 +50,7 @@ ScreenManager:
             bold: True
         MDCard:
             size_hint_y: None
-            height: "240dp"
+            height: "200dp"
             padding: "20dp"
             radius: [15]
             orientation: "vertical"
@@ -90,13 +74,6 @@ ScreenManager:
                 font_size: "18sp"
                 size_hint_x: 1
                 on_release: app.do_login()
-            MDIconButton:
-                icon: "fingerprint"
-                icon_size: "48sp"
-                pos_hint: {"center_x": 0.5}
-                theme_text_color: "Custom"
-                text_color: app.theme_cls.primary_color
-                on_release: app.do_biometric_login()
         Widget:
 
 <DashboardScreen>:
@@ -639,35 +616,6 @@ class StoreApp(MDApp):
     def show_pin_dialog(self, is_security_check=False):
         self.dialog = MDDialog(title="Security PIN", type="custom", content_cls=Builder.load_string(KV_PIN), buttons=[MDFlatButton(text="UNLOCK", on_release=self.check_pin)])
         self.dialog.open()
-
-    # --- BIOMETRIC LOGIN ---
-    def do_biometric_login(self):
-        if kivy_platform != 'android':
-            toast("Biometrics only on Android")
-            return
-        if not BiometricPrompt:
-            toast("Biometrics failed to load on this device")
-            return
-        try:
-            activity = PythonActivity.mActivity
-            context = activity.getApplicationContext()
-            class BiometricCallback(autoclass('androidx.biometric.BiometricPrompt$AuthenticationCallback')):
-                def __init__(self, app_instance):
-                    super().__init__()
-                    self.app = app_instance
-                @mainthread
-                def onAuthenticationSucceeded(self, result):
-                    self.app.login_success()
-                @mainthread
-                def onAuthenticationError(self, errorCode, errString):
-                    toast(f"Error: {errString}")
-            executor = ContextCompat.getMainExecutor(context)
-            callback = BiometricCallback(self)
-            biometric_prompt = BiometricPrompt(activity, executor, callback)
-            prompt_info = PromptInfo.Builder().setTitle("Unlock Store").setSubtitle("Confirm Identity").setNegativeButtonText("Cancel").build()
-            biometric_prompt.authenticate(prompt_info)
-        except Exception as e:
-            toast(f"Biometric Error: {str(e)}")
 
     def do_login(self):
         entered_pin = self.root.get_screen('login').ids.login_pin.text
