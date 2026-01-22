@@ -19,11 +19,8 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# CRITICAL: jnius and androidx are needed for the fingerprint code
+# comma separated e.g. requirements = sqlite3,kivy
 requirements = python3,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
-
-# (str) Custom source folders for requirements
-# requirements.source.kivymd = ../../kivymd
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/assets/presplash.png
@@ -52,11 +49,7 @@ android.ndk = 25b
 # (bool) Skip trying to update the Python-for-Android code
 android.skip_update = False
 
-# (bool) Process some other custom gradle tasks
-#android.gradle_tasks = assembleDebug
-
 # (list) The Android archs to build for
-# We stick to arm64-v8a for stability. Add armeabi-v7a only if needed for very old phones.
 android.archs = arm64-v8a
 
 # (bool) Enable AndroidX support. Enable when 'android.api' >= 28.
