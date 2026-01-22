@@ -17,29 +17,29 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3
+# CRITICAL: jnius and androidx are needed for the fingerprint code
+requirements = python3,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivymd = ../../kivymd
 
-# (list) Garden requirements
-#garden_requirements =
-
 # (str) Presplash of the application
-#presplash.filename = %(source.dir)s/data/presplash.png
+# (Uncomment these if you add these images to your assets folder)
+#presplash.filename = %(source.dir)s/assets/presplash.png
 
 # (str) Icon of the application
-#icon.filename = %(source.dir)s/data/icon.png
+#icon.filename = %(source.dir)s/assets/icon.png
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
 
 # (list) Permissions
-android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET
+# CRITICAL: USE_BIOMETRIC needed for login
+android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET, USE_BIOMETRIC, USE_FINGERPRINT
 
 # (int) Target Android API, should be as high as possible.
-android.api = 31
+android.api = 33
 
 # (int) Minimum API your APK will support.
 android.minapi = 21
@@ -56,12 +56,17 @@ android.skip_update = False
 # (bool) Process some other custom gradle tasks
 #android.gradle_tasks = assembleDebug
 
-# (list) The Android archs to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
-android.archs = arm64-v8a
+# (list) The Android archs to build for
+# arm64-v8a is for modern phones, armeabi-v7a is for older ones
+android.archs = arm64-v8a, armeabi-v7a
 
-# (int) overrides automatic versionCode computation (used in build.gradle)
-# this is not the same as app version and should only be edited if you know what you're doing
-# android.numeric_version = 1
+# (bool) Enable AndroidX support. Enable when 'android.api' >= 28.
+# CRITICAL: Must be True for Biometrics
+android.enable_androidx = True
+
+# (list) Gradle dependencies to add
+# CRITICAL: This downloads the Java code for the fingerprint scanner
+android.gradle_dependencies = androidx.biometric:biometric:1.1.0
 
 [buildozer]
 
