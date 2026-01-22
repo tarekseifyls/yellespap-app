@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    # Use Ubuntu 22.04 for stability
+    # Use Ubuntu 22.04 for stability with Android NDK
     runs-on: ubuntu-22.04
 
     steps:
@@ -67,11 +67,13 @@ jobs:
           pip install buildozer
           pip install cython==0.29.33
 
-      # 6. Build APK (With explicit JAVA_HOME and Clean step)
+      # 6. Build APK
+      # CRITICAL FIX: Manually wipe .buildozer to prevent "FileNotFound" errors
+      # We also export JAVA_HOME to ensure sdkmanager works
       - name: Build APK
         run: |
           export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-          yes | buildozer android clean
+          rm -rf .buildozer
           yes | buildozer android debug
 
       # 7. Upload the APK
