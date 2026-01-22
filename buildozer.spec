@@ -19,8 +19,8 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
+# CRITICAL FIX: We pin "python3==3.11.9" to avoid the broken "_remote_debugging" error in newer versions
+requirements = python3==3.11.9,kivy==2.2.1,kivymd==1.1.1,sdl2_ttf==2.0.15,pillow,reportlab,sqlite3,jnius,androidx
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/assets/presplash.png
@@ -34,13 +34,13 @@ orientation = portrait
 # (list) Permissions
 android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, INTERNET, USE_BIOMETRIC, USE_FINGERPRINT
 
-# (int) Target Android API, should be as high as possible.
+# (int) Target Android API
 android.api = 33
 
-# (int) Minimum API your APK will support.
+# (int) Minimum API
 android.minapi = 21
 
-# (bool) Use --private data storage (True) or --dir public storage (False)
+# (bool) Use --private data storage
 android.private_storage = True
 
 # (str) Android NDK version to use
@@ -52,7 +52,7 @@ android.skip_update = False
 # (list) The Android archs to build for
 android.archs = arm64-v8a
 
-# (bool) Enable AndroidX support. Enable when 'android.api' >= 28.
+# (bool) Enable AndroidX support.
 android.enable_androidx = True
 
 # (list) Gradle dependencies to add
@@ -62,7 +62,7 @@ android.gradle_dependencies = androidx.biometric:biometric:1.1.0
 android.accept_sdk_license = True
 
 # (str) python-for-android branch to clone
-# CRITICAL: 'develop' branch handles AndroidX/Biometrics much better than master
+# We still need 'develop' for biometrics, but pinning Python 3.11 fixes the crash
 p4a.branch = develop
 
 [buildozer]
