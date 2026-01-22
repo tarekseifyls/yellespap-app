@@ -19,7 +19,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# REMOVED: androidx, jnius, sqlite3
+# REMOVED: androidx, jnius, sqlite3 (To prevent conflicts)
 requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,sdl2_ttf==2.20.1
 
 # (str) Supported orientation
