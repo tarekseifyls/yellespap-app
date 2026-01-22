@@ -66,7 +66,9 @@ android.archs = arm64-v8a, armeabi-v7a
 # (bool) Enable AndroidX support. Enable when 'android.api' >= 28.
 # CRITICAL: Must be True for Biometrics
 android.enable_androidx = True
-
+# (bool) Automatically accept SDK license agreements
+# THIS IS THE CRITICAL FIX
+android.accept_sdk_license = True
 # (list) Gradle dependencies to add
 # CRITICAL: This downloads the Java code for the fingerprint scanner
 android.gradle_dependencies = androidx.biometric:biometric:1.1.0
@@ -78,3 +80,4 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
