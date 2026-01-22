@@ -68,7 +68,7 @@ jobs:
           pip install cython==0.29.33
 
       # 6. Build APK
-      # CRITICAL FIX: Manually wipe .buildozer to prevent "FileNotFound" errors
+      # CRITICAL FIX: Manually wipe .buildozer to remove corrupted Python source
       # We also export JAVA_HOME to ensure sdkmanager works
       - name: Build APK
         run: |
