@@ -19,21 +19,15 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# REMOVED: 'sqlite3' (built-in), 'androidx' (java only).
-# ADDED: 'openssl' is not needed for local, but kept for stability.
-requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,jnius,sdl2_ttf==2.20.1
-
-# (str) Presplash of the application
-#presplash.filename = %(source.dir)s/assets/presplash.png
-
-# (str) Icon of the application
-#icon.filename = %(source.dir)s/assets/icon.png
+# REMOVED: androidx, jnius (Not needed for basic version)
+requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,sdl2_ttf==2.20.1
 
 # (str) Supported orientation
 orientation = portrait
 
 # (list) Permissions
-android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE, USE_BIOMETRIC, USE_FINGERPRINT
+# REMOVED: USE_BIOMETRIC, USE_FINGERPRINT
+android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 
 # (int) Target Android API
 android.api = 33
@@ -51,14 +45,11 @@ android.ndk = 25b
 android.skip_update = False
 
 # (list) The Android archs to build for
-# CRITICAL FIX: Added 'armeabi-v7a'. This prevents crashes on older/32-bit phones.
+# We keep both architectures to ensure it runs on your phone
 android.archs = arm64-v8a, armeabi-v7a
 
 # (bool) Enable AndroidX support.
 android.enable_androidx = True
-
-# (list) Gradle dependencies to add
-android.gradle_dependencies = androidx.biometric:biometric:1.1.0
 
 # (bool) Automatically accept SDK license agreements
 android.accept_sdk_license = True
