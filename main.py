@@ -6,15 +6,7 @@ from kivymd.app import MDApp
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivymd.uix.boxlayout import MDBoxLayout
-# FIXED: Explicitly imported OneLineAvatarIconListItem and all other list classes
-from kivymd.uix.list import (
-    TwoLineAvatarIconListItem, 
-    OneLineListItem, 
-    IconLeftWidget, 
-    IconRightWidget, 
-    ThreeLineListItem, 
-    OneLineAvatarIconListItem
-)
+from kivymd.uix.list import TwoLineAvatarIconListItem, OneLineListItem, IconLeftWidget, OneLineAvatarIconListItem, IconRightWidget, ThreeLineListItem
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton, MDFillRoundFlatIconButton, MDIconButton
 from kivymd.uix.pickers import MDDatePicker
@@ -29,14 +21,19 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A6
 from reportlab.lib.units import mm
 
-# --- ANDROID BIOMETRIC SETUP ---
+# --- SAFETY WRAPPER FOR ANDROID IMPORTS ---
+# Prevents startup crash if Biometrics fail to load
+BiometricPrompt = None
 if kivy_platform == 'android':
-    from jnius import autoclass
-    PythonActivity = autoclass('org.kivy.android.PythonActivity')
-    BiometricPrompt = autoclass('androidx.biometric.BiometricPrompt')
-    BiometricManager = autoclass('androidx.biometric.BiometricManager')
-    ContextCompat = autoclass('androidx.core.content.ContextCompat')
-    PromptInfo = autoclass('androidx.biometric.BiometricPrompt$PromptInfo')
+    try:
+        from jnius import autoclass
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        BiometricPrompt = autoclass('androidx.biometric.BiometricPrompt')
+        BiometricManager = autoclass('androidx.biometric.BiometricManager')
+        ContextCompat = autoclass('androidx.core.content.ContextCompat')
+        PromptInfo = autoclass('androidx.biometric.BiometricPrompt$PromptInfo')
+    except Exception as e:
+        print(f"Biometric Import Error: {e}")
 
 Window.size = (360, 750)
 
@@ -109,8 +106,8 @@ ScreenManager:
         MDTopAppBar:
             title: "YellesPaP"
             elevation: 2
-            left_action_items: [["calendar", lambda x: app.show_date_picker()]]
             right_action_items: [["cog", lambda x: app.open_settings()], ["reload", lambda x: app.update_dashboard()]]
+            left_action_items: [["calendar", lambda x: app.show_date_picker()]]
         MDBoxLayout:
             size_hint_y: None
             height: "110dp"
@@ -566,18 +563,15 @@ MDBoxLayout:
     spacing: "10dp"
     size_hint_y: None
     height: "280dp"
-    
     MDTextField:
         id: edit_client
         hint_text: "Client Name"
         mode: "rectangle"
-    
     MDTextField:
         id: edit_amount
         hint_text: "Amount"
         input_filter: "float"
         mode: "rectangle"
-        
     MDTextField:
         id: edit_note
         hint_text: "Note"
@@ -643,18 +637,16 @@ class StoreApp(MDApp):
             toast("WRONG PIN")
 
     def show_pin_dialog(self, is_security_check=False):
-        self.dialog = MDDialog(
-            title="Security PIN",
-            type="custom",
-            content_cls=Builder.load_string(KV_PIN),
-            buttons=[MDFlatButton(text="UNLOCK", on_release=self.check_pin)]
-        )
+        self.dialog = MDDialog(title="Security PIN", type="custom", content_cls=Builder.load_string(KV_PIN), buttons=[MDFlatButton(text="UNLOCK", on_release=self.check_pin)])
         self.dialog.open()
 
     # --- BIOMETRIC LOGIN ---
     def do_biometric_login(self):
         if kivy_platform != 'android':
             toast("Biometrics only on Android")
+            return
+        if not BiometricPrompt:
+            toast("Biometrics failed to load on this device")
             return
         try:
             activity = PythonActivity.mActivity
@@ -680,10 +672,8 @@ class StoreApp(MDApp):
     def do_login(self):
         entered_pin = self.root.get_screen('login').ids.login_pin.text
         real_pin = self.db.get_pin()
-        if entered_pin == real_pin:
-            self.login_success()
-        else:
-            toast("WRONG PIN")
+        if entered_pin == real_pin: self.login_success()
+        else: toast("WRONG PIN")
 
     def login_success(self):
         self.root.current = "dashboard"
