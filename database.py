@@ -204,7 +204,17 @@ class StoreDatabase:
                             (amt, 1 if is_exp else 0, w, n, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")))
         self.conn.commit()
     def export_to_csv(self):
-        # NOTE: Exporting usually needs permission to write to /storage/emulated/0/Download
-        # For now, we return None to avoid crashes if permission is denied.
-        return None 
+        filename = f"Store_Export_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv"
+        try:
+            with open(filename, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Type", "Date", "Who", "Description", "Amount", "Status"])
+                self.cursor.execute("SELECT * FROM quick_sales")
+                for r in self.cursor.fetchall(): writer.writerow(["Cash", r[5], r[3], r[4], r[1], "Valid"])
+                self.cursor.execute("SELECT * FROM payments")
+                for r in self.cursor.fetchall(): 
+                    status = "DELETED" if r[7] else "Valid"
+                    writer.writerow(["Payment", r[4], r[2], r[6], r[3], status])
+            return filename
+        except: return None
     def close(self): self.conn.close()
