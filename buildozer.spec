@@ -19,14 +19,14 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # (list) Application requirements
-# REMOVED: androidx, jnius, sqlite3 (To prevent conflicts)
-requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,reportlab,sdl2_ttf==2.20.1
+# REMOVED: reportlab (To stop PDF crashes)
+# REMOVED: androidx, jnius (To stop Java crashes)
+requirements = python3==3.10.13,kivy==2.2.1,kivymd==1.1.1,cython==0.29.36,setuptools<70,pillow,sdl2_ttf==2.20.1
 
 # (str) Supported orientation
 orientation = portrait
 
 # (list) Permissions
-# REMOVED: USE_BIOMETRIC, USE_FINGERPRINT
 android.permissions = WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 
 # (int) Target Android API
@@ -45,7 +45,6 @@ android.ndk = 25b
 android.skip_update = False
 
 # (list) The Android archs to build for
-# CRITICAL: We include BOTH to prevent crashes on different phones
 android.archs = arm64-v8a, armeabi-v7a
 
 # (bool) Enable AndroidX support.
