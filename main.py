@@ -16,9 +16,8 @@ from kivy.clock import mainthread
 from kivy.utils import platform
 
 from database import StoreDatabase
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A6
-from reportlab.lib.units import mm
+
+# REMOVED: All reportlab imports
 
 Window.size = (360, 750)
 
@@ -333,8 +332,8 @@ ScreenManager:
                         on_active: app.on_switch_active(self, self.active)
                 MDFillRoundFlatIconButton:
                     id: save_btn
-                    icon: "file-pdf-box"
-                    text: "SAVE & PRINT"
+                    icon: "content-save"
+                    text: "SAVE (PDF DISABLED)"
                     size_hint_x: 1
                     on_release: app.save_receipt()
 
@@ -587,9 +586,8 @@ class StoreApp(MDApp):
     data_dir = ""
 
     def build(self):
-        # FIX: Set the safe storage path
+        # FIX: Set the safe storage path for Database
         if platform == 'android':
-            from android.storage import primary_external_storage_path
             self.data_dir = self.user_data_dir
         else:
             self.data_dir = ""
@@ -695,7 +693,7 @@ class StoreApp(MDApp):
         if not name or not amt_txt: return
         try:
             amt = float(amt_txt); self.db.add_external_payment(name, amt); self.man_dialog.dismiss()
-            pdf = self.generate_versement_pdf(name, amt); toast(f"Saved & PDF: {pdf}"); self.update_dashboard()
+            toast(f"Payment Saved (No PDF)"); self.update_dashboard()
         except: toast("Invalid Amount")
 
     # --- EDIT/DELETE ---
@@ -724,7 +722,7 @@ class StoreApp(MDApp):
         try:
             amt = float(c.ids.edit_amount.text); name = c.ids.edit_client.text
             self.db.update_payment(self.current_edit_payment['id'], name, amt, c.ids.edit_note.text); self.edit_pay_dialog.dismiss()
-            self.update_dashboard(); self.refresh_external_report_list(); pdf = self.generate_versement_pdf(name, amt); toast(f"Updated & New PDF: {pdf}")
+            self.update_dashboard(); self.refresh_external_report_list(); toast(f"Updated (No PDF)")
         except: toast("Invalid Amount")
     def delete_payment_confirm(self):
         self.db.delete_payment(self.current_edit_payment['id']); self.edit_pay_dialog.dismiss(); self.update_dashboard(); self.refresh_external_report_list(); toast("Payment Marked as Deleted")
@@ -758,6 +756,7 @@ class StoreApp(MDApp):
         if paid_now >= self.cart_total and self.cart_total > 0: s.ids.status_stamp.text = "PAID"; s.ids.status_stamp.text_color = (0, 0.8, 0, 1)
         elif paid_now > 0: s.ids.status_stamp.text = "PARTIAL"; s.ids.status_stamp.text_color = (1, 0.5, 0, 1)
         else: s.ids.status_stamp.text = "UNPAID"; s.ids.status_stamp.text_color = (0.8, 0, 0, 1)
+    
     def save_receipt(self):
         if not self.cart_items: return
         s = self.root.get_screen('receipt_form'); c = s.ids.client_name.text or "Unknown"; items_txt = ", ".join([f"{i['qty']}x {i['name']}" for i in self.cart_items])
@@ -765,52 +764,9 @@ class StoreApp(MDApp):
         except: paid_now = 0.0
         status = "Paid" if paid_now >= self.cart_total else ("Partial" if paid_now > 0 else "Unpaid")
         self.db.save_receipt(self.current_receipt_id, c, items_txt, json.dumps(self.cart_items), self.cart_total, paid_now, status)
-        pdf = self.generate_pdf_receipt(c, status, paid_now); toast(f"Saved: {pdf}"); self.update_dashboard(); self.go_back()
-    def generate_pdf_receipt(self, client_name, status, paid_now):
-        # FIX: Save PDF to safe storage path
-        filename = os.path.join(self.data_dir, f"Receipt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
         
-        c = canvas.Canvas(filename, pagesize=A6); width, height = A6
-        c.setFont("Helvetica-Bold", 14); c.drawCentredString(width/2, height - 20*mm, "YELLES PAP STATIONARY")
-        c.setFont("Helvetica", 10); c.drawString(10*mm, height - 35*mm, f"Date: {datetime.now().strftime('%Y-%m-%d')}")
-        c.drawString(10*mm, height - 40*mm, f"Client: {client_name}"); c.line(10*mm, height - 45*mm, width - 10*mm, height - 45*mm)
-        y = height - 55*mm
-        for item in self.cart_items: c.drawString(10*mm, y, f"{item['qty']}x {item['name']}"); c.drawRightString(width - 10*mm, y, f"{item['total']:,.2f}"); y -= 5*mm
-        c.line(10*mm, y - 2*mm, width - 10*mm, y - 2*mm); y -= 10*mm
-        c.setFont("Helvetica-Bold", 12); c.drawString(10*mm, y, "TOTAL:"); c.drawRightString(width - 10*mm, y, f"{self.cart_total:,.2f} DZD"); y -= 10*mm
-        c.setFont("Helvetica", 10); c.drawString(10*mm, y, f"Paid Now: {paid_now:,.2f} DZD"); y -= 10*mm
-        c.drawString(10*mm, y, f"Remaining: {max(0, self.cart_total - paid_now):,.2f} DZD")
-        stamp_path = "assets/stamp.png"
-        if os.path.exists(stamp_path): c.drawImage(stamp_path, width - 40*mm, 15*mm, width=30*mm, height=30*mm, mask='auto')
-        else:
-            y -= 20*mm; c.saveState(); c.translate(20*mm, y); c.rotate(15); c.setFont("Helvetica-Bold", 24)
-            if status == 'Paid': c.setFillColorRGB(0, 0.8, 0, 0.3); c.drawString(0, 0, "PAID")
-            elif status == 'Partial': c.setFillColorRGB(1, 0.5, 0, 0.3); c.drawString(0, 0, "PARTIAL")
-            else: c.setFillColorRGB(0.8, 0, 0, 0.3); c.drawString(0, 0, "UNPAID")
-            c.restoreState()
-        c.save(); 
-        
-        # Try to open it
-        if platform == 'android':
-            from android.content import Intent
-            from android.net import Uri
-            from jnius import autoclass, cast
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            FileProvider = autoclass('androidx.core.content.FileProvider')
-            context = PythonActivity.mActivity
-            File = autoclass('java.io.File')
-            
-            pdf_file = File(filename)
-            uri = FileProvider.getUriForFile(context, "org.yellespap.fileprovider", pdf_file)
-            
-            intent = Intent(Intent.ACTION_VIEW)
-            intent.setDataAndType(uri, "application/pdf")
-            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            context.startActivity(intent)
-        else:
-            try: os.startfile(filename)
-            except: pass
-        return filename
+        # PDF GENERATION REMOVED
+        toast(f"Receipt Saved (PDF Disabled)"); self.update_dashboard(); self.go_back()
     
     def load_receipt(self, rid):
         d = self.db.get_receipt_details(rid)
@@ -843,43 +799,8 @@ class StoreApp(MDApp):
     def confirm_versement(self, x):
         try:
             amt = float(self.vers_dialog.content_cls.ids.versement_amount.text); self.db.add_versement(self.temp_receipt_id, amt); toast("Payment Added!"); self.vers_dialog.dismiss()
-            pdf = self.generate_versement_pdf(self.temp_client_name, amt); toast(f"PDF Generated: {pdf}"); self.open_credit_screen(); self.update_dashboard()
+            toast(f"Saved (No PDF)"); self.open_credit_screen(); self.update_dashboard()
         except: toast("Invalid Amount")
-    def generate_versement_pdf(self, client, amount):
-        # FIX: Save PDF to safe storage path
-        filename = os.path.join(self.data_dir, f"Versement_{client}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
-        
-        c = canvas.Canvas(filename, pagesize=A6); width, height = A6
-        c.setFont("Helvetica-Bold", 14); c.drawCentredString(width/2, height - 20*mm, "YELLES PAP - PAYMENT")
-        c.setFont("Helvetica", 10); c.drawString(10*mm, height - 40*mm, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        c.drawString(10*mm, height - 45*mm, f"Client: {client}"); c.line(10*mm, height - 55*mm, width - 10*mm, height - 55*mm)
-        c.setFont("Helvetica-Bold", 16); c.drawCentredString(width/2, height - 75*mm, f"RECEIVED: {amount:,.2f} DZD")
-        c.setFont("Helvetica", 10); c.drawCentredString(width/2, height - 90*mm, "Thank you for your payment.")
-        stamp_path = "assets/stamp.png"
-        if os.path.exists(stamp_path): c.drawImage(stamp_path, width - 40*mm, 15*mm, width=30*mm, height=30*mm, mask='auto')
-        c.save(); 
-        
-        # Try to open it
-        if platform == 'android':
-            from android.content import Intent
-            from android.net import Uri
-            from jnius import autoclass, cast
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            FileProvider = autoclass('androidx.core.content.FileProvider')
-            context = PythonActivity.mActivity
-            File = autoclass('java.io.File')
-            
-            pdf_file = File(filename)
-            uri = FileProvider.getUriForFile(context, "org.yellespap.fileprovider", pdf_file)
-            
-            intent = Intent(Intent.ACTION_VIEW)
-            intent.setDataAndType(uri, "application/pdf")
-            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            context.startActivity(intent)
-        else:
-            try: os.startfile(filename)
-            except: pass
-        return filename
 
     # --- EXPENSES ---
     def open_expense_dialog(self):
